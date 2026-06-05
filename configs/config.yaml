@@ -1,0 +1,32 @@
+data:
+  raw_path: data/raw/churn.csv
+  processed_path: data/processed/processed.csv
+  target_column: churn
+  test_size: 0.2
+  random_state: 42
+
+model:
+  type: random_forest
+  save_path: models/model.joblib
+  parameters:
+    n_estimators: 100
+    max_depth: 8
+    min_samples_split: 2
+    min_samples_leaf: 1
+
+training:
+  metrics:
+    - accuracy
+    - precision
+    - recall
+    - f1
+    - roc_auc
+
+mlflow:
+  experiment_name: churn_prediction_pipeline
+  tracking_uri: sqlite:///mlflow.db
+
+tuning:
+  n_trials: 30
+  direction: maximize
+  metric: f1
