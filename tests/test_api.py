@@ -1,25 +1,31 @@
 import pytest
 import numpy as np
-import pandas as pd
-import joblib
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock
 from fastapi.testclient import TestClient
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.compose import ColumnTransformer
-from sklearn.pipeline import Pipeline
-from sklearn.preprocessing import StandardScaler, OneHotEncoder
+
+
+SAMPLE_FEATURES = {
+    "Age": 35,
+    "Fare": 52.5,
+    "Pclass": 1,
+    "Sex": "female",
+}
+
+SAMPLE_PAYLOAD = {"features": SAMPLE_FEATURES}
 
 
 def make_mock_model():
     model = MagicMock(spec=RandomForestClassifier)
-    model.predict.return_value = np.array([1])
-    model.predict_proba.return_value = np.array([[0.3, 0.7]])
+    model.predict.side_effect      = lambda X: np.ones(len(X), dtype=int)
+    model.predict_proba.side_effect = lambda X: np.tile([0.3, 0.7], (len(X), 1))
     return model
 
 
 def make_mock_preprocessor():
     preprocessor = MagicMock(spec=ColumnTransformer)
-    preprocessor.transform.return_value = np.zeros((1, 5))
+    preprocessor.transform.side_effect = lambda X: np.zeros((len(X), 10))
     return preprocessor
 
 
@@ -27,20 +33,18 @@ def make_mock_preprocessor():
 def client():
     from src.api import main
 
-    # Save original values
-    original_model = main.model
+    original_model        = main.model
     original_preprocessor = main.preprocessor
 
-    # Set mocks
-    main.model = make_mock_model()
+    # Set mocks before creating the client so startup doesn't overwrite them
+    main.model        = make_mock_model()
     main.preprocessor = make_mock_preprocessor()
 
-    client = TestClient(main.app)
+    # Not using context manager — avoids running @on_event("startup") which would
+    # reload real artifacts from disk and overwrite the mocks.
+    yield TestClient(main.app)
 
-    yield client
-
-    # Restore original values
-    main.model = original_model
+    main.model        = original_model
     main.preprocessor = original_preprocessor
 
 
@@ -53,20 +57,26 @@ def test_health(client):
 def test_model_info(client):
     response = client.get("/model-info")
     assert response.status_code == 200
-    assert "model_type" in response.json()
+    data = response.json()
+    # New API returns algorithm / problem_type / target_column
+    assert "algorithm" in data or "problem_type" in data
 
 
-def test_predict_churn(client):
-    payload = {
-        "tenure": 2,
-        "monthly_charges": 99.0,
-        "total_charges": 200.0,
-        "contract": "Month-to-month",
-    }
-    response = client.post("/predict", json=payload)
+def test_predict(client):
+    response = client.post("/predict", json=SAMPLE_PAYLOAD)
     assert response.status_code == 200
     data = response.json()
-    assert data["prediction"] in [0, 1]
-    assert data["prediction_label"] in ["churn", "no churn"]
-    assert "model_version" in data
+    assert "prediction" in data
     assert "probability" in data
+    assert "problem_type" in data
+
+
+def test_predict_batch(client):
+    response = client.post(
+        "/predict/batch",
+        json={"records": [SAMPLE_FEATURES, SAMPLE_FEATURES]},
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert data["count"] == 2
+    assert len(data["results"]) == 2

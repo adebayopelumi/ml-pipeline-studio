@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "production-ml-pipeline"
 version = "1.0.0"
-description = "Production ML Pipeline for Telco Churn Prediction"
+description = "Production ML Pipeline for Supervised Learning — any dataset, any target"
 requires-python = ">=3.11"
 dependencies = [
     "pandas>=2.2.2",

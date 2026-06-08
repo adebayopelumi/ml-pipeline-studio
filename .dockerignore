@@ -1,0 +1,12 @@
+.git
+__pycache__
+*.pyc
+*.pyo
+.env
+mlruns/
+mlflow.db
+logs/
+models/
+*.egg-info
+.pytest_cache
+notebooks/

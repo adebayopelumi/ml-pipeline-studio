@@ -1,6 +1,6 @@
-# Production ML Pipeline: Telco Churn Prediction
+# Production ML Pipeline: Supervised Learning Studio
 
-A complete end-to-end machine learning pipeline for predicting customer churn in the telecommunications industry. This project demonstrates production-ready ML practices including data validation, experiment tracking, hyperparameter tuning, model registry, API serving, and monitoring.
+A complete end-to-end machine learning pipeline for any supervised learning task — classification or regression, any dataset, any target column. This project demonstrates production-ready ML practices including data validation, experiment tracking, hyperparameter tuning, model registry, API serving, and monitoring.
 
 ## Features
 

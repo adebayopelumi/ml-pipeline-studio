@@ -1,15 +1,47 @@
+import json
 import numpy as np
-from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, roc_auc_score
+from pathlib import Path
+from sklearn.metrics import f1_score
+
+# compute_metrics and confusion_matrix_report now live in src/core/metrics.py
+# This module keeps the utility functions used by train.py
 
 
-def compute_metrics(model, X_test, y_test) -> dict:
-    y_pred = model.predict(X_test)
-    y_prob = model.predict_proba(X_test)[:, 1] if hasattr(model, "predict_proba") else y_pred
+def get_feature_importances(model, preprocessor) -> dict:
+    if not hasattr(model, "feature_importances_"):
+        return {}
+    try:
+        feature_names = preprocessor.get_feature_names_out()
+    except Exception:
+        feature_names = [f"feature_{i}" for i in range(len(model.feature_importances_))]
+    return dict(
+        sorted(
+            zip(feature_names.tolist(), model.feature_importances_.tolist()),
+            key=lambda x: x[1],
+            reverse=True,
+        )
+    )
 
-    return {
-        "accuracy": accuracy_score(y_test, y_pred),
-        "precision": precision_score(y_test, y_pred, zero_division=0),
-        "recall": recall_score(y_test, y_pred, zero_division=0),
-        "f1": f1_score(y_test, y_pred, zero_division=0),
-        "roc_auc": roc_auc_score(y_test, y_prob),
-    }
+
+def find_optimal_threshold(model, X_test, y_test) -> dict:
+    """Only meaningful for binary classification — skip for multiclass/regression."""
+    if not hasattr(model, "predict_proba"):
+        return {"threshold": 0.5, "f1_at_threshold": None}
+    proba = model.predict_proba(X_test)
+    if proba.shape[1] != 2:
+        # Multiclass: threshold optimisation doesn't apply
+        return {"threshold": None, "f1_at_threshold": None}
+    y_prob = proba[:, 1]
+    best_threshold, best_f1 = 0.5, 0.0
+    for t in np.linspace(0.1, 0.9, 81):
+        score = f1_score(y_test, (y_prob >= t).astype(int), zero_division=0)
+        if score > best_f1:
+            best_f1, best_threshold = score, float(t)
+    return {"threshold": best_threshold, "f1_at_threshold": best_f1}
+
+
+def save_metrics(metrics: dict, path: str = "logs/metrics/eval_metrics.json") -> None:
+    Path(path).parent.mkdir(parents=True, exist_ok=True)
+    with open(path, "w") as f:
+        json.dump(metrics, f, indent=2, default=str)
+    print(f"Metrics saved to {path}")

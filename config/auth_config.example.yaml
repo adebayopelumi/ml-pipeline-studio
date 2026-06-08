@@ -1,0 +1,10 @@
+cookie:
+  expiry_days: 30
+  key: change_this_to_a_long_random_secret
+  name: ml_pipeline_auth
+credentials:
+  usernames:
+    admin:
+      email: your@email.com
+      name: Admin
+      password: your_password_here   # plain text — streamlit-authenticator auto-hashes on first run

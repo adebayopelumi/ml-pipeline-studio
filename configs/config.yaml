@@ -1,7 +1,7 @@
 data:
-  raw_path: data/raw/churn.csv
+  raw_path: data/raw/dataset.csv
   processed_path: data/processed/processed.csv
-  target_column: churn
+  target_column: target
   test_size: 0.2
   random_state: 42
 
@@ -9,10 +9,10 @@ model:
   type: random_forest
   save_path: models/model.joblib
   parameters:
-    n_estimators: 100
-    max_depth: 8
-    min_samples_split: 2
-    min_samples_leaf: 1
+    n_estimators: 105
+    max_depth: 11
+    min_samples_split: 8
+    min_samples_leaf: 3
 
 training:
   metrics:
@@ -23,7 +23,7 @@ training:
     - roc_auc
 
 mlflow:
-  experiment_name: churn_prediction_pipeline
+  experiment_name: ml_pipeline
   tracking_uri: sqlite:///mlflow.db
 
 tuning:

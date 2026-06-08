@@ -55,12 +55,20 @@ class MetricsTracker:
         self.metrics_dir = Path(metrics_dir)
         self.metrics_dir.mkdir(parents=True, exist_ok=True)
 
-    def log_metrics(self, metrics: Dict[str, float], dataset: str = "test") -> None:
-        """Log evaluation metrics with timestamp."""
+    def log_metrics(
+        self,
+        metrics: Dict[str, float],
+        dataset: str = "test",
+        target_column: str = "",
+        problem_type: str = "",
+    ) -> None:
+        """Log evaluation metrics with timestamp and run context."""
         log_entry = {
             "timestamp": datetime.utcnow().isoformat(),
             "dataset": dataset,
-            **metrics
+            "target_column": target_column,
+            "problem_type": problem_type,
+            **metrics,
         }
 
         log_file = self.metrics_dir / f"metrics_{dataset}.jsonl"

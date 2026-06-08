@@ -7,6 +7,7 @@ build/
 .venv
 venv/
 *.joblib
+*.npy
 mlruns/
 mlflow.db
 mlflow.db-shm
@@ -18,3 +19,12 @@ logs/
 .pytest_cache/
 .ruff_cache/
 .DS_Store
+
+# Auth — contains hashed passwords, keep off GitHub
+config/auth_config.yaml
+
+# Trained model artefacts and per-user data
+models/
+
+# Pipeline summary (generated file)
+PIPELINE_SUMMARY.md

@@ -10,8 +10,14 @@ train:
 tune:
 	python -m src.models.tune
 
+predict:
+	python -m src.models.predict $(file)
+
 serve:
 	uvicorn src.api.main:app --reload
+
+app:
+	streamlit run app/main.py
 
 test:
 	pytest
