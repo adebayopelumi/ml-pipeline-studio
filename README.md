@@ -9,23 +9,23 @@ ML Pipeline Studio is a professional desktop application for machine learning. U
 ## What it does
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                      ML Pipeline Studio                         │
-│                                                                 │
-│   📂 Upload CSV                                                 │
-│        │                                                        │
-│        ▼                                                        │
-│   🎯 Pick target column  ──►  🤖 Choose algorithm              │
-│                                      │                          │
-│                                      ▼                          │
-│                              ⚙️  Train model                    │
-│                                      │                          │
-│              ┌───────────────────────┼──────────────────┐      │
-│              ▼                       ▼                   ▼      │
-│        📊 Results               ⚡ Predict          💾 Export  │
-│     Metrics, charts,         Single row or         Excel report │
-│     SHAP explanations        batch CSV file        (.xlsx)      │
-└─────────────────────────────────────────────────────────────────┘
+
+                      ML Pipeline Studio                         
+                                                                 
+   Upload CSV                                                 
+        │                                                        
+        ▼                                                        
+    Pick target column  ──►   Choose algorithm               
+                                      │                          
+                                      ▼                          
+                                Train model                    
+                                      │                          
+              ┌───────────────────────┼──────────────────┐     
+              ▼                       ▼                   ▼      
+         Results                  Predict               Export  
+      Metrics, charts,         Single row or           Excel report 
+     SHAP explanations        batch CSV file           (.xlsx)      
+
 ```
 
 ---
