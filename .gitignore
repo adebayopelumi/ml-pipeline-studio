@@ -23,6 +23,9 @@ logs/
 # Auth — contains hashed passwords, keep off GitHub
 config/auth_config.yaml
 
+# Streamlit Cloud secrets — never commit
+.streamlit/secrets.toml
+
 # Trained model artefacts and per-user data
 models/
 

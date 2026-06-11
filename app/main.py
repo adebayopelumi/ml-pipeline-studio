@@ -317,6 +317,18 @@ def _ensure_auth_config():
 
 
 def _load_auth_config():
+    # On Streamlit Cloud, load credentials from st.secrets instead of the YAML file
+    if "credentials" in st.secrets:
+        return {
+            "credentials": {
+                "usernames": {
+                    uname: dict(udata)
+                    for uname, udata in st.secrets["credentials"]["usernames"].items()
+                }
+            },
+            "cookie": dict(st.secrets["cookie"]),
+        }
+    # Local: fall back to YAML file
     _ensure_auth_config()
     with open(AUTH_CONFIG_PATH) as f:
         return yaml.safe_load(f)

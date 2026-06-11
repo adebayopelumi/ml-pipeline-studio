@@ -32,11 +32,28 @@ def render():
         st.error("Access denied. This page is only available to the admin user.")
         return
 
-    if not AUTH_CONFIG_PATH.exists():
+    is_cloud = "credentials" in st.secrets
+    if is_cloud:
+        st.info(
+            "Running on Streamlit Cloud — user management is read-only here. "
+            "Add or remove users via the **Secrets** panel in your Streamlit Cloud dashboard."
+        )
+
+    if not AUTH_CONFIG_PATH.exists() and not is_cloud:
         st.error("Auth config file not found. Restart the app to regenerate it.")
         return
 
-    config = _load_config()
+    if is_cloud:
+        config = {
+            "credentials": {
+                "usernames": {
+                    uname: dict(udata)
+                    for uname, udata in st.secrets["credentials"]["usernames"].items()
+                }
+            }
+        }
+    else:
+        config = _load_config()
     users  = config.get("credentials", {}).get("usernames", {})
 
     # ── Current users ─────────────────────────────────────────────────────────
@@ -49,7 +66,7 @@ def render():
             col1.markdown(f"**{username}**")
             col2.markdown(info.get("name", "—"))
             col3.markdown(info.get("email", "—"))
-            if col4.button("Remove", key=f"remove_{username}"):
+            if not is_cloud and col4.button("Remove", key=f"remove_{username}"):
                 del config["credentials"]["usernames"][username]
                 _save_config(config)
                 st.success(f"User **{username}** removed.")
@@ -64,7 +81,7 @@ def render():
         new_name     = st.text_input("Full name", placeholder="Jane Smith")
         new_email    = st.text_input("Email", placeholder="jsmith@example.com")
         new_password = st.text_input("Password", type="password", placeholder="At least 6 characters")
-        submitted    = st.form_submit_button("Add User", type="primary")
+        submitted    = st.form_submit_button("Add User", type="primary", disabled=is_cloud)
 
     if submitted:
         if not new_username or not new_name or not new_email or not new_password:
