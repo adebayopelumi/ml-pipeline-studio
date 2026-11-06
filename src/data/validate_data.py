@@ -64,8 +64,8 @@ def validate(df: pd.DataFrame, target_column: str = "target") -> pd.DataFrame:
 
 
 if __name__ == "__main__":
+    from src.data.load_data import clean_raw_data, load_raw_data
     from src.utils.config import load_config
-    from src.data.load_data import load_raw_data, clean_raw_data
 
     config = load_config()
     df = load_raw_data(config["data"]["raw_path"])

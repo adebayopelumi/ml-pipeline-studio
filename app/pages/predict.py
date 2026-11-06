@@ -11,6 +11,7 @@ from pathlib import Path
 from src.utils.config import load_config
 from src.data.preprocess import load_preprocessor
 from src.data.load_data import clean_raw_data
+from app import theme
 
 
 def _user_dir() -> Path:
@@ -34,25 +35,37 @@ def _load_artifacts():
 
 
 def render():
-    if not st.session_state.get("_page_scrolled"):
-        st.markdown("<script>window.parent.document.querySelector('section[data-testid=\"stMain\"]').scrollTo(0,0);</script>", unsafe_allow_html=True)
-        st.session_state["_page_scrolled"] = True
-    st.title("Predict")
-    st.caption("Run a single prediction or score an entire CSV file.")
-
     model, preprocessor, label_encoder = _load_artifacts()
 
+    meta = []
+    if model is not None:
+        algo = theme.algo_info(st.session_state.get("last_algorithm"),
+                               st.session_state.get("last_problem_type"))
+        meta.append(f"<b>{theme.esc(algo['name'])}</b>")
+        if st.session_state.get("last_target"):
+            meta.append(f"predicting {theme.esc(st.session_state['last_target'])}")
+    theme.hero("Predict", "Predict", "Run a single prediction or score an entire CSV file.",
+               meta, user=st.session_state.get("name"))
+
     if model is None:
-        st.warning("No model found. Go to **Train** and train a model first.")
+        st.markdown(
+            '<div class="ps-empty"><b>No model to play yet</b>'
+            "<span>Train a model first — it will show up here, ready to score new data.</span></div>",
+            unsafe_allow_html=True,
+        )
+        if st.button("Go to Train", type="primary", key="predict_to_train"):
+            st.session_state["page"] = "Train"
+            st.session_state["_scroll_reset"] = True
+            st.rerun()
         return
 
-    st.success("Model loaded and ready.")
+    st.write("")
 
     tab1, tab2 = st.tabs(["Single Prediction", "Batch Prediction (CSV)"])
 
     # ── Single prediction ─────────────────────────────────────────────────────
     with tab1:
-        st.subheader("Enter customer details")
+        st.subheader("Enter feature values")
 
         try:
             feature_names = preprocessor.get_feature_names_out()
@@ -100,6 +113,7 @@ def render():
                     probability = float(model.predict_proba(processed)[0][prediction])
                     label = str(predicted_label)
 
+                    st.session_state["pipe_predicted"] = True
                     col1, col2, col3 = st.columns(3)
                     col1.metric("Prediction", label)
                     col2.metric("Confidence", f"{probability:.1%}")
@@ -113,13 +127,13 @@ def render():
                         title={"text": "Predicted Probability", "font": {"color": "rgba(255,255,255,0.85)"}},
                         gauge={
                             "axis": {"range": [0, 100], "tickcolor": "rgba(255,255,255,0.5)"},
-                            "bar": {"color": "#f87171" if probability > 0.5 else "#667eea"},
+                            "bar": {"color": theme.NEGATIVE if probability > 0.5 else theme.GREEN},
                             "bgcolor": "rgba(255,255,255,0.04)",
                             "bordercolor": "rgba(255,255,255,0.15)",
                             "steps": [
-                                {"range": [0, 35],  "color": "rgba(52,211,153,0.15)"},
-                                {"range": [35, 60], "color": "rgba(245,158,11,0.15)"},
-                                {"range": [60, 100],"color": "rgba(248,113,113,0.15)"},
+                                {"range": [0, 35],  "color": "rgba(30,215,96,0.14)"},
+                                {"range": [35, 60], "color": "rgba(255,164,43,0.14)"},
+                                {"range": [60, 100],"color": "rgba(243,114,127,0.14)"},
                             ],
                         },
                         number={"suffix": "%", "font": {"color": "#ffffff"}},
@@ -129,6 +143,7 @@ def render():
 
                 else:
                     predicted_value = float(model.predict(processed)[0])
+                    st.session_state["pipe_predicted"] = True
                     st.metric("Predicted Value", f"{predicted_value:,.2f}")
 
                 # ── SHAP waterfall for this prediction ───────────────────────
@@ -146,7 +161,7 @@ def render():
                     feat_vals = [list(input_data.values())[i] if i < len(input_data) else "" for i in order]
                     labels = [f"{n} = {v}" for n, v in zip(names, feat_vals)]
 
-                    colors = ["#d62728" if v > 0 else "#1f77b4" for v in vals]
+                    colors = [theme.NEGATIVE if v > 0 else theme.BLUE for v in vals]
 
                     st.divider()
                     st.subheader("Why this prediction?")
@@ -161,7 +176,7 @@ def render():
                         orientation="h",
                         marker_color=colors[::-1],
                     ))
-                    fig_w.add_vline(x=0, line_dash="dash", line_color="gray")
+                    fig_w.add_vline(x=0, line_dash="dash", line_color=theme.MUTED)
                     fig_w.update_layout(
                         xaxis_title="SHAP contribution",
                         height=max(350, len(vals) * 28),
@@ -210,6 +225,7 @@ def render():
 
                     results = df.copy()
                     results["predicted"] = predictions
+                    st.session_state["pipe_predicted"] = True
 
                     if hasattr(model, "predict_proba"):
                         proba = model.predict_proba(processed)

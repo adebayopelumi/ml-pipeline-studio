@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "streamlit",
+      "runtimeExecutable": "/Users/admin/miniconda3/bin/python3",
+      "runtimeArgs": ["-m", "streamlit", "run", "app/main.py", "--server.port", "8517", "--server.headless", "true", "--server.runOnSave", "true"],
+      "port": 8517
+    }
+  ]
+}

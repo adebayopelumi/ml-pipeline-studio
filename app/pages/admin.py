@@ -3,9 +3,10 @@ import os
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
 import streamlit as st
-import streamlit.components.v1 as components
 import yaml
 from pathlib import Path
+
+from app import theme
 
 AUTH_CONFIG_PATH = Path(__file__).parent.parent.parent / "config" / "auth_config.yaml"
 
@@ -21,12 +22,9 @@ def _save_config(config: dict):
 
 
 def render():
-    components.html(
-        "<script>window.parent.document.querySelector('section[data-testid=\"stMain\"]').scrollTo(0,0);</script>",
-        height=0,
-    )
-    st.title("User Management")
-    st.caption("Add or remove users who can log into ML Pipeline Studio.")
+    theme.hero("Admin", "Users", "Add or remove users who can log into ML Pipeline Studio.",
+               user=st.session_state.get("name"))
+    st.write("")
 
     if st.session_state.get("username") != "admin":
         st.error("Access denied. This page is only available to the admin user.")
