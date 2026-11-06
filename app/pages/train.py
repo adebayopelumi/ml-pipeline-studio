@@ -10,32 +10,32 @@ from src.core.algorithm_registry import ALGORITHM_REGISTRY, list_algorithms
 from src.core.metrics import get_available_metrics, DEFAULT_METRICS
 from src.core.problem_detector import detect_problem_type, describe_problem
 from src.data.load_data import clean_raw_data
+from app import theme
+
+
+def _plural(n: int, word: str) -> str:
+    return f"{n} {word}{'' if n == 1 else 's'}"
 
 
 def render():
-    if not st.session_state.get("_page_scrolled"):
-        st.markdown("<script>window.parent.document.querySelector('section[data-testid=\"stMain\"]').scrollTo(0,0);</script>", unsafe_allow_html=True)
-        st.session_state["_page_scrolled"] = True
-    st.title("Train a Model")
-    st.caption("Upload any dataset, pick your algorithm, set your parameters, and train.")
+    hero_slot = st.empty()
 
     # ── Step 1: Dataset ──────────────────────────────────────────────────────
-    st.header("Step 1 — Dataset")
+    theme.tracklist_header("Step", "Selection")
+    row1 = st.empty()
 
     if "train_df_raw" in st.session_state:
         if st.button("Clear dataset & start over"):
             _clear_all()
             st.rerun()
-        st.caption("Use **Reset everything** in the sidebar to also clear Results and Predict.")
+        st.caption("Use **Reset everything** in Your Library to also clear Results and Predict.")
 
-    col1, col2 = st.columns([2, 1])
-    with col1:
-        upload = st.file_uploader("Upload a CSV file", type=["csv"])
-        dataset_path_input = st.text_input(
-            "Or enter a file path",
-            placeholder="data/raw/dataset.csv",
-            value=st.session_state.get("train_path_input", ""),
-        )
+    upload = st.file_uploader("Upload a CSV file", type=["csv"])
+    dataset_path_input = st.text_input(
+        "Or enter a file path",
+        placeholder="data/raw/dataset.csv",
+        value=st.session_state.get("train_path_input", ""),
+    )
 
     if upload:
         df_raw = pd.read_csv(upload)
@@ -43,6 +43,7 @@ def render():
         df_raw.to_csv(tmp.name, index=False)
         st.session_state["train_df_raw"]       = df_raw
         st.session_state["train_dataset_path"] = tmp.name
+        st.session_state["train_dataset_name"] = upload.name
         st.session_state["train_path_input"]   = ""
 
     elif dataset_path_input and dataset_path_input != st.session_state.get("train_path_input", ""):
@@ -50,23 +51,52 @@ def render():
             df_raw = pd.read_csv(dataset_path_input)
             st.session_state["train_df_raw"]       = df_raw
             st.session_state["train_dataset_path"] = dataset_path_input
+            st.session_state["train_dataset_name"] = os.path.basename(dataset_path_input)
             st.session_state["train_path_input"]   = dataset_path_input
         except Exception as e:
             st.error(f"Could not load file: {e}")
 
     df_raw       = st.session_state.get("train_df_raw")
     dataset_path = st.session_state.get("train_dataset_path")
+    ds_name      = st.session_state.get("train_dataset_name") or \
+        (os.path.basename(dataset_path) if dataset_path else "dataset.csv")
+
+    runs = len(st.session_state.get("training_history", []))
+    meta = [_plural(runs, "run")]
+    if df_raw is not None:
+        meta.append(f"{theme.esc(ds_name)}, {len(df_raw):,} rows")
+    theme.hero(
+        "Train", "Train",
+        "Upload any dataset, pick your algorithm, set your parameters, and train.",
+        meta, user=st.session_state.get("name"), slot=hero_slot,
+    )
+    theme.track(
+        1, "Dataset", "Upload a CSV or point to a file path",
+        f"<b>{theme.esc(ds_name)}</b> · {len(df_raw):,} rows · {len(df_raw.columns)} cols" if df_raw is not None else None,
+        done=df_raw is not None, slot=row1,
+    )
+
+    if df_raw is None:
+        for n, (title, sub) in enumerate([
+            ("Target column", "The column you want to predict"),
+            ("Algorithm", "Auto-pick or choose your own"),
+            ("Hyperparameters", "Optuna, manual or defaults"),
+            ("Evaluation metrics", "How the model gets scored"),
+        ], start=2):
+            theme.track(n, title, sub)
 
     if df_raw is not None:
-        st.success(f"Loaded {len(df_raw):,} rows and {len(df_raw.columns)} columns.")
         with st.expander("Preview data"):
             st.dataframe(df_raw.head(10), use_container_width=True)
 
         # ── Step 2: Target column ────────────────────────────────────────────
-        st.header("Step 2 — Target Column")
         cols_list = df_raw.columns.tolist()
         saved_target_idx = cols_list.index(st.session_state["train_target_column"]) \
             if st.session_state.get("train_target_column") in cols_list else len(cols_list) - 1
+        target_preview = cols_list[saved_target_idx] if cols_list else None
+        theme.track(2, "Target column", "The column you want to predict",
+                    f"<b>{theme.esc(target_preview)}</b>" if target_preview else None,
+                    done=bool(target_preview))
 
         target_column = st.selectbox(
             "Which column are you predicting?",
@@ -82,10 +112,19 @@ def render():
                     df_clean[target_column] = df_raw[target_column]
 
                 problem_type = detect_problem_type(df_clean[target_column])
-                st.info(f"Auto-detected: {describe_problem(problem_type)}")
+                theme.chip(describe_problem(problem_type), "Auto-detected · ")
 
                 # ── Step 3: Algorithm ────────────────────────────────────────
-                st.header("Step 3 — Algorithm")
+                from src.core.algorithm_registry import AUTO_DEFAULTS
+                available_algos = list_algorithms(problem_type)
+                mode_now = st.session_state.get("train_algo_mode", "Auto")
+                if mode_now == "Auto":
+                    algo_value = f"Auto · <b>{theme.esc(theme.algo_info(AUTO_DEFAULTS[problem_type])['name'])}</b>"
+                else:
+                    pick = st.session_state.get("train_algorithm")
+                    pick = pick if pick in available_algos else (available_algos[0] if available_algos else None)
+                    algo_value = f"<b>{theme.esc(theme.algo_info(pick)['name'])}</b>" if pick else None
+                theme.track(3, "Algorithm", "Auto-pick or choose your own", algo_value, done=bool(algo_value))
 
                 algo_mode = st.radio(
                     "How do you want to choose the algorithm?",
@@ -94,13 +133,10 @@ def render():
                     key="train_algo_mode",
                 )
 
-                available_algos = list_algorithms(problem_type)
-
                 if algo_mode == "Auto":
                     algorithm = "auto"
-                    from src.core.algorithm_registry import AUTO_DEFAULTS
                     auto_name = AUTO_DEFAULTS[problem_type]
-                    st.caption(f"Will use: {auto_name}")
+                    st.caption(f"Will use: {theme.algo_info(auto_name)['name']} ({auto_name})")
                 else:
                     saved_algo = st.session_state.get("train_algorithm")
                     algo_idx   = available_algos.index(saved_algo) if saved_algo in available_algos else 0
@@ -121,7 +157,14 @@ def render():
                         )
 
                 # ── Step 4: Hyperparameters ──────────────────────────────────
-                st.header("Step 4 — Hyperparameters")
+                tuning_now = st.session_state.get("train_tuning_mode", "Auto-tune (Optuna)")
+                if tuning_now == "Auto-tune (Optuna)":
+                    tune_value = f"<b>Optuna</b> · {st.session_state.get('train_n_trials', 20)} trials"
+                elif tuning_now == "Set manually" and algorithm != "auto":
+                    tune_value = "<b>Manual</b>"
+                else:
+                    tune_value = "<b>Defaults</b>"
+                theme.track(4, "Hyperparameters", "Optuna, manual or defaults", tune_value, done=True)
 
                 tuning_mode = st.radio(
                     "Hyperparameter control",
@@ -169,11 +212,19 @@ def render():
                                 idx         = choices.index(default_str) if default_str in choices else 0
                                 val         = st.selectbox(label, choices, index=idx, key=skey)
                                 manual_params[param_name] = val
+                elif tuning_mode == "Set manually":
+                    st.caption("Switch the algorithm to Manual to set its hyperparameters. Default parameters will be used.")
                 else:
                     st.caption("Default parameters will be used.")
 
                 # ── Step 5: Metrics ──────────────────────────────────────────
-                st.header("Step 5 — Evaluation Metrics")
+                metrics_now = st.session_state.get("train_metrics_mode", "Auto (recommended)")
+                if metrics_now == "Manual selection":
+                    chosen = st.session_state.get("train_selected_metrics", DEFAULT_METRICS[problem_type])
+                    metrics_value = f"<b>{len(chosen)}</b> selected" if chosen else None
+                else:
+                    metrics_value = "<b>Auto</b> · " + theme.esc(", ".join(theme.metric_label(m) for m in DEFAULT_METRICS[problem_type]))
+                theme.track(5, "Evaluation metrics", "How the model gets scored", metrics_value, done=bool(metrics_value))
 
                 metrics_mode = st.radio(
                     "Metrics selection",
@@ -197,9 +248,9 @@ def render():
 
                 # ── Run ──────────────────────────────────────────────────────
                 st.divider()
-                run_col, _ = st.columns([1, 3])
+                run_col, _ = st.columns([1, 2])
                 with run_col:
-                    run_button = st.button("Train Model", type="primary", use_container_width=True)
+                    run_button = st.button("Train model", type="primary", use_container_width=True)
 
                 if run_button:
                     if selected_metrics is not None and len(selected_metrics) == 0:
@@ -219,13 +270,17 @@ def render():
                         )
 
                 if "last_metrics" in st.session_state:
-                    st.divider()
-                    st.subheader("Last Training Result")
                     metrics = st.session_state["last_metrics"]
+                    last_algo = theme.algo_info(st.session_state.get("last_algorithm"),
+                                                st.session_state.get("last_problem_type"))
+                    theme.section("Last training result", last_algo["name"])
                     cols = st.columns(len(metrics))
                     for col, (name, value) in zip(cols, metrics.items()):
-                        col.metric(name.upper(), f"{value:.4f}")
-                    st.info("Go to Results for full charts and feature importances.")
+                        col.metric(theme.metric_label(name), f"{value:.4f}")
+                    if st.button("See full results", key="train_to_results"):
+                        st.session_state["page"] = "Results"
+                        st.session_state["_scroll_reset"] = True
+                        st.rerun()
 
             except Exception as e:
                 st.error(f"Error reading target column: {e}")
@@ -244,6 +299,7 @@ def _clear_all():
         "last_preprocessor", "last_target", "last_feature_importances",
         "last_cm", "last_eval_data", "last_shap_values", "last_shap_features",
         "last_shap_X", "compare_metrics", "compare_algorithm",
+        "train_dataset_name", "pipe_evaluated", "pipe_predicted",
     ]
     for key in all_keys:
         st.session_state.pop(key, None)
@@ -347,6 +403,9 @@ def _run_training(dataset_path, target_column, algorithm, manual_params, run_tun
         **metrics,
     })
     st.session_state["training_history"] = history
+    # A fresh model hasn't been evaluated or used for predictions yet.
+    st.session_state["pipe_evaluated"] = False
+    st.session_state["pipe_predicted"] = False
 
     st.success("Model trained and saved successfully.")
     _save_state_to_disk()

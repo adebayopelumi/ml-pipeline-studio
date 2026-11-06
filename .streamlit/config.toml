@@ -4,3 +4,19 @@ enableCORS = false
 
 [browser]
 gatherUsageStats = false
+
+# Dark theme
+[theme]
+base = "dark"
+primaryColor = "#1ed760"
+backgroundColor = "#121212"
+secondaryBackgroundColor = "#1f1f1f"
+textColor = "#ffffff"
+linkColor = "#ffffff"
+borderColor = "#3b3b3b"
+baseRadius = "0.5rem"
+font = "Figtree:https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700;800;900&display=swap"
+
+[theme.sidebar]
+backgroundColor = "#121212"
+secondaryBackgroundColor = "#1f1f1f"

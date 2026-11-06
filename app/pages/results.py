@@ -9,6 +9,7 @@ import json
 import numpy as np
 import pandas as pd
 from pathlib import Path
+from app import theme
 from sklearn.metrics import (
     roc_curve, auc, precision_recall_curve,
     classification_report,
@@ -103,15 +104,20 @@ def _restore_from_disk():
 
 
 def render():
-    if not st.session_state.get("_page_scrolled"):
-        st.markdown("<script>window.parent.document.querySelector('section[data-testid=\"stMain\"]').scrollTo(0,0);</script>", unsafe_allow_html=True)
-        st.session_state["_page_scrolled"] = True
-    st.title("Results")
-
     _restore_from_disk()
 
     if "last_metrics" not in st.session_state:
-        st.warning("No results yet. Go to Train to run a model first.")
+        theme.hero("Results", "Results", "Metrics, charts and explanations for your latest model.",
+                   user=st.session_state.get("name"))
+        st.markdown(
+            '<div class="ps-empty"><b>No results yet</b>'
+            "<span>Train a model and its scores, charts and SHAP explanations land here.</span></div>",
+            unsafe_allow_html=True,
+        )
+        if st.button("Go to Train", type="primary", key="results_to_train"):
+            st.session_state["page"] = "Train"
+            st.session_state["_scroll_reset"] = True
+            st.rerun()
         return
 
     metrics      = st.session_state["last_metrics"]
@@ -119,9 +125,18 @@ def render():
     algorithm    = st.session_state.get("last_algorithm", "unknown")
     fi           = st.session_state.get("last_feature_importances")
     is_classification = "classification" in problem_type
+    st.session_state["pipe_evaluated"] = True
 
-    st.caption(f"Problem type: {problem_type}  |  Algorithm: {algorithm}")
-    st.divider()
+    algo_meta = theme.algo_info(algorithm, problem_type)
+    runs = len(st.session_state.get("training_history", []))
+    theme.hero(
+        "Results", "Results",
+        f"{theme.PROBLEM_LABEL.get(problem_type, problem_type)} — scores, charts and SHAP explanations for your latest model.",
+        [f"<b>{theme.esc(algo_meta['name'])}</b>",
+         f"target {theme.esc(st.session_state.get('last_target', ''))}",
+         f"{runs} run{'' if runs == 1 else 's'}"],
+        user=st.session_state.get("name"),
+    )
 
     # ── Model comparison (shown when a second algorithm was trained) ───────────
     compare_metrics   = st.session_state.get("compare_metrics")
@@ -134,8 +149,8 @@ def render():
         b_vals = [compare_metrics.get(m, 0) for m in all_metric_names]
 
         fig = go.Figure()
-        fig.add_trace(go.Bar(name=str(algorithm), x=all_metric_names, y=a_vals, marker_color="#4C78A8"))
-        fig.add_trace(go.Bar(name=str(compare_algorithm), x=all_metric_names, y=b_vals, marker_color="#F58518"))
+        fig.add_trace(go.Bar(name=str(algorithm), x=all_metric_names, y=a_vals, marker_color=theme.GREEN))
+        fig.add_trace(go.Bar(name=str(compare_algorithm), x=all_metric_names, y=b_vals, marker_color=theme.BLUE))
         fig.update_layout(
             barmode="group",
             yaxis_title="Score",
@@ -198,11 +213,10 @@ def render():
             with col1:
                 fig = px.imshow(
                     cm_df, text_auto=True,
-                    color_continuous_scale=["rgba(30,27,75,0.6)", "#667eea", "#a78bfa"],
+                    color_continuous_scale=[theme.ELEVATED, "#117a3a", theme.GREEN],
                     title="Confusion Matrix", aspect="auto",
                 )
                 fig.update_layout(height=350)
-                fig.update_traces(textfont=dict(color="white"))
                 st.plotly_chart(fig, use_container_width=True, config={"scrollZoom": False})
 
             with col2:
@@ -234,7 +248,7 @@ def render():
         fig = go.Figure(go.Bar(
             x=values, y=labels,
             orientation="h",
-            marker_color="steelblue",
+            marker_color=theme.GREEN,
         ))
         fig.update_layout(
             title=f"Top {top_n} Features by Importance",
@@ -275,7 +289,7 @@ def render():
                     )
                 report_df = report_df.sort_values("F1-Score", ascending=False)
                 fig = go.Figure()
-                for metric_name, color in [("Precision", "#4C78A8"), ("Recall", "#F58518"), ("F1-Score", "#54A24B")]:
+                for metric_name, color in [("Precision", theme.GREEN), ("Recall", theme.BLUE), ("F1-Score", theme.WARNING)]:
                     fig.add_trace(go.Bar(
                         name=metric_name,
                         x=report_df["Class"].astype(str),
@@ -308,12 +322,12 @@ def render():
                     fig.add_trace(go.Scatter(
                         x=fpr, y=tpr, mode="lines",
                         name=f"Model (AUC = {roc_auc_val:.3f})",
-                        line=dict(color="#4C78A8", width=2),
+                        line=dict(color=theme.GREEN, width=2.5),
                     ))
                     fig.add_trace(go.Scatter(
                         x=[0, 1], y=[0, 1], mode="lines",
                         name="Random classifier",
-                        line=dict(color="gray", dash="dash"),
+                        line=dict(color=theme.MUTED, dash="dash"),
                     ))
                     fig.update_layout(
                         xaxis_title="False Positive Rate",
@@ -336,9 +350,9 @@ def render():
                     fig.add_trace(go.Scatter(
                         x=rec, y=prec, mode="lines",
                         name="PR Curve",
-                        line=dict(color="#F58518", width=2),
+                        line=dict(color=theme.BLUE, width=2.5),
                         fill="tozeroy",
-                        fillcolor="rgba(245,133,24,0.1)",
+                        fillcolor="rgba(83,157,245,0.12)",
                     ))
                     fig.update_layout(
                         xaxis_title="Recall",
@@ -363,14 +377,14 @@ def render():
                 fig = go.Figure()
                 fig.add_trace(go.Scatter(
                     x=y_test, y=y_pred, mode="markers",
-                    marker=dict(color="#4C78A8", opacity=0.5, size=5),
+                    marker=dict(color=theme.GREEN, opacity=0.55, size=5),
                     name="Predictions",
                 ))
                 lim = [float(min(y_test.min(), y_pred.min())),
                        float(max(y_test.max(), y_pred.max()))]
                 fig.add_trace(go.Scatter(
                     x=lim, y=lim, mode="lines",
-                    line=dict(color="red", dash="dash"),
+                    line=dict(color=theme.NEGATIVE, dash="dash"),
                     name="Perfect fit",
                 ))
                 fig.update_layout(
@@ -390,10 +404,10 @@ def render():
                 fig = go.Figure()
                 fig.add_trace(go.Scatter(
                     x=y_pred, y=residuals, mode="markers",
-                    marker=dict(color="#F58518", opacity=0.5, size=5),
+                    marker=dict(color=theme.BLUE, opacity=0.55, size=5),
                     name="Residual",
                 ))
-                fig.add_hline(y=0, line_dash="dash", line_color="red")
+                fig.add_hline(y=0, line_dash="dash", line_color=theme.NEGATIVE)
                 fig.update_layout(
                     xaxis_title=f"Predicted {target}",
                     yaxis_title="Residual (Actual − Predicted)",
@@ -436,7 +450,7 @@ def render():
                 x=top_mean[::-1],
                 y=top_names[::-1],
                 orientation="h",
-                marker_color="#4C78A8",
+                marker_color=theme.GREEN,
             ))
             fig.update_layout(
                 xaxis_title="Mean |SHAP value|",
@@ -458,8 +472,9 @@ def render():
                     feat_col = shap_X[:, i]
                     col_min, col_max = feat_col.min(), feat_col.max()
                     norm = (feat_col - col_min) / (col_max - col_min + 1e-9)
+                    # Low feature value → blue, high → red
                     colors = [
-                        f"rgb({int(255*v)}, {int(30*(1-v)+30*v)}, {int(255*(1-v))})"
+                        f"rgb({int(83 + (243-83)*v)}, {int(157 + (114-157)*v)}, {int(245 + (127-245)*v)})"
                         for v in norm
                     ]
                     y_jitter = np.full(len(shap_vals), rank) + np.random.default_rng(i).uniform(-0.3, 0.3, len(shap_vals))
@@ -472,7 +487,7 @@ def render():
                         showlegend=False,
                         hovertemplate=f"<b>{shap_features[i]}</b><br>SHAP: %{{x:.4f}}<extra></extra>",
                     ))
-                fig2.add_vline(x=0, line_dash="dash", line_color="gray")
+                fig2.add_vline(x=0, line_dash="dash", line_color=theme.MUTED)
                 fig2.update_layout(
                     xaxis_title="SHAP value",
                     yaxis=dict(
@@ -513,7 +528,7 @@ def render():
                 hover_data=["algorithm"],
                 title=f"{metric_to_plot.upper()} over time — {target}",
             )
-            fig.update_traces(line_color="steelblue", marker_size=9)
+            fig.update_traces(line_color=theme.GREEN, marker_size=9)
             fig.update_layout(xaxis_title="Time", yaxis_title=metric_to_plot, height=340)
             st.plotly_chart(fig, use_container_width=True, config={"scrollZoom": False})
             if n_runs == 1:
