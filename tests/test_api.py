@@ -1,10 +1,10 @@
-import pytest
-import numpy as np
 from unittest.mock import MagicMock
-from fastapi.testclient import TestClient
-from sklearn.ensemble import RandomForestClassifier
-from sklearn.compose import ColumnTransformer
 
+import numpy as np
+import pytest
+from fastapi.testclient import TestClient
+from sklearn.compose import ColumnTransformer
+from sklearn.ensemble import RandomForestClassifier
 
 SAMPLE_FEATURES = {
     "Age": 35,

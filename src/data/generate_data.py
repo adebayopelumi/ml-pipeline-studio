@@ -1,6 +1,7 @@
-import pandas as pd
-import numpy as np
 from pathlib import Path
+
+import numpy as np
+import pandas as pd
 
 
 def generate_churn_data(n_samples: int = 5000, random_state: int = 42) -> pd.DataFrame:

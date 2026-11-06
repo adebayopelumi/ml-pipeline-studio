@@ -1,9 +1,9 @@
-import pytest
-import pandas as pd
 import numpy as np
-from src.data.preprocess import preprocess
-from src.core.metrics import compute_metrics
+import pandas as pd
 from sklearn.ensemble import RandomForestClassifier
+
+from src.core.metrics import compute_metrics
+from src.data.preprocess import preprocess
 
 
 def make_sample_df(n=200):

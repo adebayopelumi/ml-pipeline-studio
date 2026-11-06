@@ -1,6 +1,7 @@
-import pandas as pd
+from typing import Dict
+
 import numpy as np
-from typing import Dict, Tuple
+import pandas as pd
 from scipy import stats
 
 
